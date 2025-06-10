@@ -57,3 +57,52 @@ class DataTypeInMarginalPriceFile(Enum):
 
     def __str__(self):
         return self.__dict_concept_str__[self.value]
+    
+class BorderType(Enum):
+    """Border identifiers for cross-border exchanges with Spain."""
+    PORTUGAL = 2
+    FRANCE = 3
+    MOROCCO = 5
+    
+    @classmethod
+    def get_all_borders(cls):
+        """Return all available border types."""
+        return [cls.PORTUGAL, cls.FRANCE, cls.MOROCCO]
+    
+    def get_country_name(self):
+        """Return the country name for display purposes."""
+        country_names = {
+            BorderType.PORTUGAL: "Portugal",
+            BorderType.FRANCE: "France", 
+            BorderType.MOROCCO: "Morocco"
+        }
+        return country_names.get(self, "Unknown")
+
+class CommercialCapacityDataType(Enum):
+    """Data types available in commercial capacities files."""
+    IMPORT_CAPACITY = "IMPORT_CAPACITY"
+    IMPORT_OCCUPATION = "IMPORT_OCCUPATION" 
+    FREE_IMPORT_CAPACITY = "FREE_IMPORT_CAPACITY"
+    EXPORT_CAPACITY = "EXPORT_CAPACITY"
+    EXPORT_OCCUPATION = "EXPORT_OCCUPATION"
+    FREE_EXPORT_CAPACITY = "FREE_EXPORT_CAPACITY"
+    
+class CapacityType(Enum):
+    """Interconnection export capacity and occupation type - after market clearance (default) and after technical constraints/restrictions."""
+    
+    AFTER_MARKET_CLEARANCE = "market_clearance"
+    AFTER_TECHNICAL_RESTRICTIONS = "technical_restrictions"
+    
+    def get_url_suffix(self):
+        """Return the URL pattern suffix for each capacity type."""
+        if self == CapacityType.AFTER_MARKET_CLEARANCE:
+            return "INT_CAPACIDAD_INTER_D_BB_DD_MM_YYYY_DD_MM_YYYY.TXT"
+        elif self == CapacityType.AFTER_TECHNICAL_RESTRICTIONS:
+            return "INT_CAPACIDAD_INTER_D_PVP_BB_DD_MM_YYYY_DD_MM_YYYY.TXT"
+    
+    def get_description(self):
+        """Human-readable description."""
+        if self == CapacityType.AFTER_MARKET_CLEARANCE:
+            return "Commercial Interconnection Capacities After Market Clearance"
+        elif self == CapacityType.AFTER_TECHNICAL_RESTRICTIONS:
+            return "Commercial Interconnection Capacities After Technical Restrictions"
