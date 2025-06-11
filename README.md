@@ -100,33 +100,34 @@ Not covered nor available
 
 Acknowledging and considering the limitations of current contributions, they are:
 
-1. **OMIEData**: Extend the OMIEData's python package functionalities and data sources, embbeding new contributions into the already existing architecture, "data flow", and data extraction pattern/process: User Request → Importer → Downloader → FileReader → DataFrame.
+1. **OMIEData**
+Extend the OMIEData's python package functionalities and data sources, embbeding new contributions into the already existing architecture, "data flow", and data extraction pattern/process: User Request → Importer → Downloader → FileReader → DataFrame.
 As such, contributions are:
 
-***OMIESupplyDemandCurvesExtendedImporter***
+- ***OMIESupplyDemandCurvesExtendedImporter***:
 Extends original demand supply curve importer to support multi-hour demand and supply curves query. Two distinct approaches were implemented, still to be validates/tested. Next steps are included.
 
-***OMIECommercialCapacitiesImporter***
+- ***OMIECommercialCapacitiesImporter***:
 High-level importer for OMIE's commercial interconnection capacity data of Spain. The data includes import/export capacities, their occupation levels, and remaining free capacities for each hourly period after the day-ahead market auction process. This funcitonality provides flexible support across multiple cross-border connections (Portugal, France and Morocco) while also supporting flexible option of capacity type (after market clearance or after techincal contraints/restrictions). 
 
-***OMIECommercialCapacitiesDownloader***
+- ***OMIECommercialCapacitiesDownloader***:
 Handles the download of the capacity data detailed above. As part of the extraction process, the Downloader is reponsible to handle the construction of border- and category-specific URLs, using templated patterns and supports flexible broder control (e.g., only one, two/three, 'all') and data catalog category options ("After Market Clearance" or "Aftter Technical Constraints/Restrictions").
 
-***OMIECommercialCapacitiesFileReader***
+- ***OMIECommercialCapacitiesFileReader***:
 Extending from OMIEFileReader (and overwritting methods), it parses and processes commercial capacity data files from OMIE cross-border exchanges and capacities. The FileReader is responsible to parse the .txt files (available data sources from OMIE), returned by the requests. In line with other implementations, final version uses a simpler and less manual approach of capturing data (via read csv method *vs* manual idenfication of rows and columns and headers). Get formatted concepts and "metadata" information on the data collected.
 
-2. **REE API**: Integrating 
+2. **REE API**:
 Loosely inspired in [hectorespert's REE lib](https://github.com/hectorespert/ree), this API Wrapper is an ongoing project to provide a fully (programatically) accessible API wrapper to the [REE's open API](https://www.ree.es/en/datos/apidata) and all of its data catalog. For now, it is a working in progress as it only supports 'Demand''s category 'evolution' widget. It is structured in a multi-layered approach, with clear separations of actions at each level, in a widget-centric design. 
 
-**folder** ***client***
+- **folder** ***client***:
 Contains the low-level base client for all REE API's HTTP communications, and a "abstraction" layer to simplify verbose code to use Wrapper (when more widgets and categories are covered)
-**folder** ***widgets***
-Contains the widget classes, for each data category & widget combination. This approach was chosen so as each widget enum contains its own parameter validation rules for widget constraints; enable specialized methods for each.
-**folder** ***exceptions***
+- **folder** ***widgets***:
+Base abstract widget class, with pre-defined methods. Additionally, it also contains the remaining widget classes for each data category & widget combination (e.g., 'Demand' and 'Evolucion'). This approach was chosen so as each widget enum contains its own parameter validation rules for widget constraints; enable specialized methods for each.
+- **folder** ***exceptions***:
 Contains dedicated exceptions for the package layers
-**folder** ***enums***
+- **folder** ***enums***:
 Contains all enums needed for parameters, validation, lists of possible values and respective attributes.
-**folder** ***utils***
+- **folder** ***utils***:
 Contains all utilities implemented (e.g., response parsing, date validation and the respective error handling)
 
 Moreover, it also provides support for all of the geographies available, fully integrated with all REE's geo_ids, includes proper response processing, enums-ensured parameter validation from source's data catalog conditions, parameter validation and error handling. Finally, a draft for a flexible interface is included (see below)
