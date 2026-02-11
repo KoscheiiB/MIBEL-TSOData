@@ -26,6 +26,12 @@ class OMIEDataImporterFromResponses(OMIEDataImporter):
                                                           date_end=self.date_end,
                                                           verbose=verbose):
             try:
+                # Check if the response is successful (status code 200)
+                if response.status_code != 200:
+                    if verbose:
+                        print(f'Skipping {response.url} (HTTP {response.status_code})')
+                    continue
+
                 df = pd.concat([df, self.fileReader.get_data_from_response(response=response)], ignore_index=True)
 
             except Exception as exc:

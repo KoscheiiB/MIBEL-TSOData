@@ -36,30 +36,30 @@ class OMIECommercialCapacitiesImporter(OMIEDataImporterFromResponses):
         OMIECommercialCapacitiesImporter(dt.date(2024, 1, 1),dt.date(2024, 1, 31), borders=[BorderType.PORTUGAL, BorderType.FRANCE], capacity_type=CapacityType.AFTER_TECHNICAL_CLEARANCE)
     """
     
-    def __init__(self, date_ini: dt.date, date_end: dt.date, 
-                 borders: Union[BorderType, List[BorderType]] = None,
+    def __init__(self, date_ini: dt.date, date_end: dt.date,
+                 borders: Union[BorderType, List[BorderType], str] = None,
                  capacity_type: CapacityType = CapacityType.AFTER_MARKET_CLEARANCE):
         """
         Enhanced constructor/Importer with support to 1. flexible border choices and 2. Interconnection export/import capacity type.
-        
+
         Args:
             date_ini: Start date
-            date_end: End date  
-            borders: Border(s) to fetch data for
+            date_end: End date
+            borders: Border(s) to fetch data for. Can be 'all', None, BorderType, or list of BorderType
             capacity_type: Type of Interconncetion export capacity data to fetch (after "Market Clearance" or "Technical Contrainsts/Restrictions")
         """
         # Store capacity type
         self.capacity_type = capacity_type
-        
+
         # Border selection logic
-        if borders is None:
+        if borders is None or borders == 'all':
             self.borders = BorderType.get_all_borders()
         elif isinstance(borders, BorderType):
             self.borders = [borders]
         elif isinstance(borders, list):
             self.borders = borders
         else:
-            raise ValueError("borders must be BorderType, list of BorderType, or None")
+            raise ValueError("borders must be 'all', BorderType, list of BorderType, or None")
         
         # Store for multi-border case
         self.date_ini = date_ini
@@ -133,6 +133,6 @@ class OMIECommercialCapacitiesImporter(OMIEDataImporterFromResponses):
         # Combine all border data
         if all_data:
             combined_df = pd.concat(all_data, ignore_index=True)
-            return combined_df.sort_values(['DATE', 'COUNTRY', 'PERIOD']).reset_index(drop=True)
+            return combined_df.sort_values(['DATE', 'COUNTRY', 'HOUR']).reset_index(drop=True)
         else:
             return pd.DataFrame(columns=CommercialCapacitiesFileReader().get_keys())

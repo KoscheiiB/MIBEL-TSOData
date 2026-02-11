@@ -14,8 +14,8 @@ class CommercialCapacitiesFileReader(OMIEFileReader):
     """
     # Define the column mapping
     _dict_column_mapping = {
-        'Periodo': 'PERIOD',
-        'Fecha': 'DATE', 
+        'Hora': 'HOUR',
+        'Fecha': 'DATE',
         'Frontera': 'BORDER',
         'Capacidad importación': 'IMPORT_CAPACITY',
         'Ocupación Importación': 'IMPORT_OCCUPATION',
@@ -67,7 +67,7 @@ class CommercialCapacitiesFileReader(OMIEFileReader):
         """Parse using pandas built-in CSV functionality."""
         try:
             # Read CSV with pandas, skipping header rows
-            df = pd.read_csv(file_like, sep=';', skiprows=2, header=0, encoding='utf-8', skipfooter=1, engine='python', decimal=',', thousands='.')
+            df = pd.read_csv(file_like, sep=';', skiprows=2, header=0, encoding='latin-1', skipfooter=1, engine='python', decimal=',', thousands='.')
             
             # Rename columns using dictionary mapping
             df = df.rename(self._dict_column_mapping, axis=1)
@@ -87,7 +87,7 @@ class CommercialCapacitiesFileReader(OMIEFileReader):
         df['DATE'] = pd.to_datetime(df['DATE'], format='%d/%m/%Y')
         
         # Ensure proper data types
-        numeric_columns = ['PERIOD','IMPORT_CAPACITY', 'IMPORT_OCCUPATION', 'FREE_IMPORT_CAPACITY',
+        numeric_columns = ['HOUR','IMPORT_CAPACITY', 'IMPORT_OCCUPATION', 'FREE_IMPORT_CAPACITY',
                         'EXPORT_CAPACITY', 'EXPORT_OCCUPATION', 'FREE_EXPORT_CAPACITY']
         
         for col in numeric_columns:
