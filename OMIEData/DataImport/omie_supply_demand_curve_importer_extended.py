@@ -63,25 +63,29 @@ class OMIESupplyDemandCurvesExtendedImporter(OMIEDataImporterFromResponses):
         else:
             raise ValueError("Hours must be int, List[int], or 'all'")
 
-    def read_to_dataframe(self, verbose: bool = False) -> pd.DataFrame:
+    def read_to_dataframe(self, verbose: bool = False, save_raw_data_path: Optional[str] = None) -> pd.DataFrame:
         """
         Download and read supply-demand curves for all specified hours.
         Reuses existing downloader and file reader components.
+
+        Args:
+            verbose: Print progress messages
+            save_raw_data_path: Optional path to save raw .txt files
         """
         all_dataframes = []
-        
+
         if verbose:
             total_hours = len(self.hours)
             print(f"Fetching curves for {total_hours} hour(s) from {self.date_ini} to {self.date_end}")
-        
+
         for i, hour in enumerate(self.hours, 1):
             if verbose:
                 print(f"Processing hour {hour} ({i}/{len(self.hours)})")
-                
+
             try:
                 # Create downloader for this specific hour (reusing existing component)
                 downloader = SupplyDemandCurveDownloader(hour=hour)
-                
+
                 # Create a temporary importer for this hour using existing architecture
                 hour_importer = OMIEDataImporterFromResponses(
                     date_ini=self.date_ini,
@@ -89,36 +93,36 @@ class OMIESupplyDemandCurvesExtendedImporter(OMIEDataImporterFromResponses):
                     file_downloader=downloader,
                     file_reader=self.file_reader  # Reuse the same reader instance
                 )
-                
+
                 # Get data for this hour using existing read_to_dataframe method
-                df_hour = hour_importer.read_to_dataframe(verbose=False)
-                
+                df_hour = hour_importer.read_to_dataframe(verbose=False, save_raw_data_path=save_raw_data_path)
+
                 if not df_hour.empty:
                     # Add hour identifier to distinguish between different hours
                     df_hour = df_hour.copy()
                     df_hour['HOUR'] = hour
                     all_dataframes.append(df_hour)
-                    
+
             except Exception as e:
                 if verbose:
                     print(f"Warning: Could not fetch data for hour {hour}: {str(e)}")
                 continue
-        
+
         if not all_dataframes:
             if verbose:
                 print("No data was successfully retrieved")
             return pd.DataFrame()
-        
+
         # Combine all dataframes
         combined_df = pd.concat(all_dataframes, ignore_index=True)
-        
+
         # Sort by date and hour for consistency
         if 'DATE' in combined_df.columns and 'HOUR' in combined_df.columns:
             combined_df = combined_df.sort_values(['DATE', 'HOUR']).reset_index(drop=True)
-        
+
         if verbose:
             print(f"Successfully retrieved {len(combined_df)} records for {len(self.hours)} hour(s)")
-            
+
         return combined_df
 
     def read_to_dataframe_optimized(self, verbose: bool = False) -> pd.DataFrame:

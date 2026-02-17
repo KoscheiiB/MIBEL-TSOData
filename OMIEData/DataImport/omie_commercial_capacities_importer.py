@@ -1,6 +1,7 @@
 import datetime as dt
 import pandas as pd
-from typing import List, Union
+import os
+from typing import List, Union, Optional
 
 from OMIEData.DataImport.omie_data_importer_from_responses import OMIEDataImporterFromResponses
 from OMIEData.Downloaders.commercial_capacities_downloader import CommercialCapacitiesDownloader
@@ -83,53 +84,70 @@ class OMIECommercialCapacitiesImporter(OMIEDataImporterFromResponses):
                 file_reader=CommercialCapacitiesFileReader(border_type=self.borders[0])
             )
     
-    def read_to_dataframe(self, verbose=False) -> pd.DataFrame:
+    def read_to_dataframe(self, verbose=False, save_raw_data_path: Optional[str] = None) -> pd.DataFrame:
         """Override to handle multi-border support."""
-        
+
         # Single border: use parent's optimized implementation
         if len(self.borders) == 1:
-            return super().read_to_dataframe(verbose=verbose)
-        
+            return super().read_to_dataframe(verbose=verbose, save_raw_data_path=save_raw_data_path)
+
         # Multi-border: custom implementation
-        return self._read_multi_border_dataframe(verbose=verbose)
+        return self._read_multi_border_dataframe(verbose=verbose, save_raw_data_path=save_raw_data_path)
     
-    def _read_multi_border_dataframe(self, verbose=False) -> pd.DataFrame:
+    def _read_multi_border_dataframe(self, verbose=False, save_raw_data_path: Optional[str] = None) -> pd.DataFrame:
         """Handle multi-border data fetching."""
+        # Create directory if save path is provided
+        if save_raw_data_path:
+            os.makedirs(save_raw_data_path, exist_ok=True)
+            if verbose:
+                print(f'Raw data will be saved to: {save_raw_data_path}')
+
         all_data = []
-        
+
         for border in self.borders:
             if verbose:
                 print(f"\nFetching data for {border.get_country_name()}...")
-            
+
             try:
                 # Create border-specific downloader and reader
                 downloader = CommercialCapacitiesDownloader(border_type=border, capacity_type=self.capacity_type)
                 reader = CommercialCapacitiesFileReader(border_type=border)
-                
+
                 # Use the same pattern as parent class
                 border_df = pd.DataFrame(columns=reader.get_keys())
-                
+
                 for response in downloader.url_responses(
-                    date_ini=self.date_ini, 
-                    date_end=self.date_end, 
+                    date_ini=self.date_ini,
+                    date_end=self.date_end,
                     verbose=verbose
                 ):
                     try:
+                        # Save raw data if path is provided
+                        if save_raw_data_path:
+                            filename = response.url.split('/')[-1]
+                            filepath = os.path.join(save_raw_data_path, filename)
+
+                            with open(filepath, 'wb') as f:
+                                f.write(response.content)
+
+                            if verbose:
+                                print(f'Saved raw file: {filename}')
+
                         daily_data = reader.get_data_from_response(response=response)
                         border_df = pd.concat([border_df, daily_data], ignore_index=True)
-                        
+
                         if verbose:
                             print(f'Url: {response.url} successfully processed')
-                            
+
                     except Exception as exc:
                         print(f'There was error processing file: {response.url}')
                         print(f'{exc}')
-                
+
                 all_data.append(border_df)
-                
+
             except Exception as exc:
                 print(f'Error fetching data for {border.get_country_name()}: {exc}')
-        
+
         # Combine all border data
         if all_data:
             combined_df = pd.concat(all_data, ignore_index=True)
