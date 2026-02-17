@@ -84,18 +84,51 @@ class OMIECommercialCapacitiesImporter(OMIEDataImporterFromResponses):
                 file_reader=CommercialCapacitiesFileReader(border_type=self.borders[0])
             )
     
-    def read_to_dataframe(self, verbose=False, save_raw_data_path: Optional[str] = None) -> pd.DataFrame:
-        """Override to handle multi-border support."""
+    def read_to_dataframe(self,
+                          verbose: bool = False,
+                          save_raw_data_path: Optional[str] = None,
+                          skip_existing: bool = True,
+                          read_from_disk: bool = False) -> pd.DataFrame:
+        """Override to handle multi-border support with resume and read-from-disk functionality.
 
+        Args:
+            verbose: Print progress messages
+            save_raw_data_path: Optional path to save/read raw .txt files
+            skip_existing: If True, skip downloading files that already exist on disk
+            read_from_disk: If True, read all files from disk without downloading
+
+        Returns:
+            pd.DataFrame: Processed data
+        """
         # Single border: use parent's optimized implementation
         if len(self.borders) == 1:
-            return super().read_to_dataframe(verbose=verbose, save_raw_data_path=save_raw_data_path)
+            return super().read_to_dataframe(verbose=verbose,
+                                            save_raw_data_path=save_raw_data_path,
+                                            skip_existing=skip_existing,
+                                            read_from_disk=read_from_disk)
 
         # Multi-border: custom implementation
-        return self._read_multi_border_dataframe(verbose=verbose, save_raw_data_path=save_raw_data_path)
+        return self._read_multi_border_dataframe(verbose=verbose,
+                                                 save_raw_data_path=save_raw_data_path,
+                                                 skip_existing=skip_existing,
+                                                 read_from_disk=read_from_disk)
     
-    def _read_multi_border_dataframe(self, verbose=False, save_raw_data_path: Optional[str] = None) -> pd.DataFrame:
-        """Handle multi-border data fetching."""
+    def _read_multi_border_dataframe(self,
+                                     verbose: bool = False,
+                                     save_raw_data_path: Optional[str] = None,
+                                     skip_existing: bool = True,
+                                     read_from_disk: bool = False) -> pd.DataFrame:
+        """Handle multi-border data fetching with resume and read-from-disk support.
+
+        Args:
+            verbose: Print progress messages
+            save_raw_data_path: Optional path to save/read raw .txt files
+            skip_existing: If True, skip downloading files that already exist on disk
+            read_from_disk: If True, read all files from disk without downloading
+
+        Returns:
+            pd.DataFrame: Combined data from all borders
+        """
         # Create directory if save path is provided
         if save_raw_data_path:
             os.makedirs(save_raw_data_path, exist_ok=True)
@@ -113,35 +146,21 @@ class OMIECommercialCapacitiesImporter(OMIEDataImporterFromResponses):
                 downloader = CommercialCapacitiesDownloader(border_type=border, capacity_type=self.capacity_type)
                 reader = CommercialCapacitiesFileReader(border_type=border)
 
-                # Use the same pattern as parent class
-                border_df = pd.DataFrame(columns=reader.get_keys())
-
-                for response in downloader.url_responses(
+                # Create temporary importer for this border
+                border_importer = OMIEDataImporterFromResponses(
                     date_ini=self.date_ini,
                     date_end=self.date_end,
-                    verbose=verbose
-                ):
-                    try:
-                        # Save raw data if path is provided
-                        if save_raw_data_path:
-                            filename = response.url.split('/')[-1]
-                            filepath = os.path.join(save_raw_data_path, filename)
+                    file_downloader=downloader,
+                    file_reader=reader
+                )
 
-                            with open(filepath, 'wb') as f:
-                                f.write(response.content)
-
-                            if verbose:
-                                print(f'Saved raw file: {filename}')
-
-                        daily_data = reader.get_data_from_response(response=response)
-                        border_df = pd.concat([border_df, daily_data], ignore_index=True)
-
-                        if verbose:
-                            print(f'Url: {response.url} successfully processed')
-
-                    except Exception as exc:
-                        print(f'There was error processing file: {response.url}')
-                        print(f'{exc}')
+                # Use parent's read_to_dataframe with all parameters
+                border_df = border_importer.read_to_dataframe(
+                    verbose=verbose,
+                    save_raw_data_path=save_raw_data_path,
+                    skip_existing=skip_existing,
+                    read_from_disk=read_from_disk
+                )
 
                 all_data.append(border_df)
 

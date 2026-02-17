@@ -46,24 +46,58 @@ class CommercialCapacitiesDownloader(GeneralOMIEDownloader):
         # Call parent constructor
         super().__init__(url_mask=url_pattern, output_mask=output_pattern)
     
+    def get_expected_filename(self, date: dt.datetime) -> str:
+        """Generate expected output filename for a given date, including border type.
+
+        Overrides parent to handle border-specific filename generation.
+
+        Args:
+            date: Date to generate filename for
+
+        Returns:
+            Expected filename with border type substituted
+        """
+        filename = super().get_expected_filename(date)
+        filename = filename.replace('BB', str(self.border_type.value))
+        return filename
+
+    def get_response_for_date(self, date: dt.datetime, verbose: bool = False):
+        """Get HTTP response for a single date with border placeholder replacement.
+
+        Overrides parent to handle border-specific URL generation.
+
+        Args:
+            date: Date to download data for
+            verbose: Print progress messages
+
+        Returns:
+            HTTP Response object
+        """
+        url_aux = self._replace_placeholders(self.get_complete_url(), date)
+
+        if verbose:
+            print(f'Requesting {self.border_type.name} data: {url_aux}')
+
+        return requests.get(url_aux, allow_redirects=True)
+
     def _replace_placeholders(self, template: str, date: dt.datetime) -> str:
         """
         Placeholder replacement that includes border support.
-        
+
         This method extends the parent's placeholder logic to handle BB (border).
         Example:
         Template: "CC_BB_YYYYMMDD.txt"
         Border: Portugal (ID=2), Date: 2024-01-15
         Result: "CC_2_20240115.txt"
-        
-        
+
+
         """
 
         result = template.replace('DD', f'{date.day:02d}')
-        result = result.replace('MM', f'{date.month:02d}')  
+        result = result.replace('MM', f'{date.month:02d}')
         result = result.replace('YYYY', f'{date.year:04d}')
         result = result.replace('BB', str(self.border_type.value))
-        
+
         return result
     
     def url_responses(self, date_ini: dt.datetime, date_end: dt.datetime, verbose=False):

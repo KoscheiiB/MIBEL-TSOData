@@ -50,6 +50,63 @@ class GeneralOMIEDownloader(OMIEDownloader):
 
         return error
 
+    def get_expected_filename(self, date: dt.datetime) -> str:
+        """Generate expected output filename for a given date without downloading.
+
+        Args:
+            date: Date to generate filename for
+
+        Returns:
+            Expected filename based on output_mask pattern
+        """
+        dd = f'{date.day:02d}'
+        mm = f'{date.month:02d}'
+        yyyy = f'{date.year:04d}'
+
+        filename = self.output_mask
+        filename = filename.replace('DD', dd)
+        filename = filename.replace('MM', mm)
+        filename = filename.replace('YYYY', yyyy)
+
+        return filename
+
+    def get_response_for_date(self, date: dt.datetime, verbose: bool = False) -> req.Response:
+        """Get HTTP response for a single date.
+
+        Args:
+            date: Date to download data for
+            verbose: Print progress messages
+
+        Returns:
+            HTTP Response object
+        """
+        dd = f'{date.day:02d}'
+        mm = f'{date.month:02d}'
+        yyyy = f'{date.year:04d}'
+
+        url = self.get_complete_url()
+        url = url.replace('DD', dd).replace('MM', mm).replace('YYYY', yyyy)
+
+        if verbose:
+            print(f'Requesting {url} ...')
+
+        return req.get(url, allow_redirects=True)
+
+    def _date_range(self, start: dt.datetime, end: dt.datetime):
+        """Generate dates from start to end (inclusive).
+
+        Args:
+            start: Start date
+            end: End date
+
+        Yields:
+            datetime objects for each day in range
+        """
+        current = start
+        while current <= end:
+            yield current
+            current += dt.timedelta(days=1)
+
     def url_responses(self, date_ini: dt.datetime, date_end: dt.datetime, verbose=False):
 
         dt_aux = date_ini

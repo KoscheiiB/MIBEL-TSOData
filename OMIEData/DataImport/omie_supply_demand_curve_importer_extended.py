@@ -63,14 +63,23 @@ class OMIESupplyDemandCurvesExtendedImporter(OMIEDataImporterFromResponses):
         else:
             raise ValueError("Hours must be int, List[int], or 'all'")
 
-    def read_to_dataframe(self, verbose: bool = False, save_raw_data_path: Optional[str] = None) -> pd.DataFrame:
+    def read_to_dataframe(self,
+                          verbose: bool = False,
+                          save_raw_data_path: Optional[str] = None,
+                          skip_existing: bool = True,
+                          read_from_disk: bool = False) -> pd.DataFrame:
         """
-        Download and read supply-demand curves for all specified hours.
+        Download and read supply-demand curves for all specified hours with resume support.
         Reuses existing downloader and file reader components.
 
         Args:
             verbose: Print progress messages
             save_raw_data_path: Optional path to save raw .txt files
+            skip_existing: If True, skip downloading files that already exist on disk
+            read_from_disk: If True, read all files from disk without downloading
+
+        Returns:
+            pd.DataFrame: Combined data from all hours
         """
         all_dataframes = []
 
@@ -94,8 +103,13 @@ class OMIESupplyDemandCurvesExtendedImporter(OMIEDataImporterFromResponses):
                     file_reader=self.file_reader  # Reuse the same reader instance
                 )
 
-                # Get data for this hour using existing read_to_dataframe method
-                df_hour = hour_importer.read_to_dataframe(verbose=False, save_raw_data_path=save_raw_data_path)
+                # Get data for this hour using existing read_to_dataframe method with all parameters
+                df_hour = hour_importer.read_to_dataframe(
+                    verbose=False,
+                    save_raw_data_path=save_raw_data_path,
+                    skip_existing=skip_existing,
+                    read_from_disk=read_from_disk
+                )
 
                 if not df_hour.empty:
                     # Add hour identifier to distinguish between different hours
