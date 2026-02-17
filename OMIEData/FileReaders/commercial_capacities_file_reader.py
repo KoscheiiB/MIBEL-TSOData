@@ -69,6 +69,21 @@ class CommercialCapacitiesFileReader(OMIEFileReader):
     def get_data_from_response(self, response: Response) -> pd.DataFrame:
 
         return self._get_data_from_file_like(file_like=BytesIO(response.content))
+
+    def get_data_from_file(self, filename: str) -> pd.DataFrame:
+        """Read and parse data from a local file.
+
+        Parsing is locale-free (pandas decimal/thousands handling in
+        _get_data_from_file_like), so no locale juggling is needed.
+
+        Args:
+            filename: Path to the .txt file to read
+
+        Returns:
+            pd.DataFrame: Parsed commercial capacities data
+        """
+        with open(filename, 'rb') as f:
+            return self._get_data_from_file_like(file_like=BytesIO(f.read()))
     
     def _get_data_from_file_like(self, file_like) -> pd.DataFrame:
         """Parse using pandas built-in CSV functionality."""
