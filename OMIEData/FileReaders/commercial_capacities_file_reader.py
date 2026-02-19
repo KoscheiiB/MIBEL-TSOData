@@ -104,10 +104,17 @@ class CommercialCapacitiesFileReader(OMIEFileReader):
                     rename_map[col] = norm_mapping[col_norm]
             df = df.rename(columns=rename_map)
 
+            # Handle missing HOUR column (period-aggregated files carry 'Periodo'
+            # instead); avoids a KeyError downstream in _standardize_columns.
+            if 'HOUR' not in df.columns and 'Periodo' in df.columns:
+                df = df.rename({'Periodo': 'HOUR'}, axis=1)
+            elif 'HOUR' not in df.columns:
+                df['HOUR'] = pd.NA
+
             df = df[[x for x in self.get_keys() if x in df.columns]]
 
             df = self._standardize_columns(df)
-        
+
             return df
         except Exception as e:
             raise ValueError(f"Error parsing commercial capacities file: {str(e)}")

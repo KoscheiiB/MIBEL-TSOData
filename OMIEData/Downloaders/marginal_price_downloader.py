@@ -7,7 +7,7 @@ class MarginalPriceDownloader(GeneralOMIEDownloader):
     url_year = 'AGNO_YYYY'
     url_month = '/MES_MM/TXT/'
     url_name = 'INT_PBC_EV_H_1_DD_MM_YYYY_DD_MM_YYYY.TXT'
-    output_mask = 'PMD_YYYYMMDD.txt'
+    output_mask = 'omie_PMD_YYYYMMDD.txt'
 
     def __init__(self):
 

@@ -41,7 +41,7 @@ class CommercialCapacitiesDownloader(GeneralOMIEDownloader):
         # get_url_suffix - defined in the Enums, it returns the value and url replacement suffix corresponding to the different 
         # URL configuration patterns/strings for each of the two  
         url_pattern = f'AGNO_YYYY/MES_MM/TXT/{capacity_type.get_url_suffix()}'
-        output_pattern = f'CC_{capacity_type.value}_BB_YYYYMMDD.txt'
+        output_pattern = f'omie_CC_{capacity_type.value}_BB_YYYYMMDD.txt'
         
         # Call parent constructor
         super().__init__(url_mask=url_pattern, output_mask=output_pattern)

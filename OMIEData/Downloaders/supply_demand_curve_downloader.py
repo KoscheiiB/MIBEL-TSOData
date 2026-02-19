@@ -7,7 +7,7 @@ class SupplyDemandCurveDownloader(GeneralOMIEDownloader):
     url_year = 'AGNO_YYYY'
     url_month = '/MES_MM/TXT/'
     url_name = 'INT_CURVA_ACUM_UO_MIB_1_HH_DD_MM_YYYY_DD_MM_YYYY.TXT'
-    output_mask = 'OfferAndDemandCurve_HH_YYYYMMDD.txt'
+    output_mask = 'omie_OfferAndDemandCurve_HH_YYYYMMDD.txt'
 
     def __init__(self, hour: int):
 

@@ -8,7 +8,7 @@ class EnergyByTechnologyDownloader(GeneralOMIEDownloader):
     url_year = 'AGNO_YYYY'
     url_month = '/MES_MM/TXT/'
     url_name = 'INT_PBC_TECNOLOGIAS_H_SYS_DD_MM_YYYY_DD_MM_YYYY.TXT'
-    output_mask = 'EnergyByTechnology_SYS_YYYYMMDD.txt'
+    output_mask = 'omie_EnergyByTechnology_SYS_YYYYMMDD.txt'
 
     def __init__(self, system: SystemType):
 
