@@ -57,7 +57,7 @@ class OMIEDataImporterFromResponses(OMIEDataImporter):
             return self._read_from_local_files(save_raw_data_path, verbose)
 
         # Mode 1 & 2: Download (with optional skip)
-        df = pd.DataFrame(columns=self.fileReader.get_keys())
+        frames = []
 
         for date in self.fileDownloader._date_range(self.date_ini, self.date_end):
             expected_filename = self.fileDownloader.get_expected_filename(date)
@@ -68,7 +68,7 @@ class OMIEDataImporterFromResponses(OMIEDataImporter):
                 if verbose:
                     print(f'File exists, reading from disk: {expected_filename}')
                 try:
-                    df = pd.concat([df, self.fileReader.get_data_from_file(filepath)], ignore_index=True)
+                    frames.append(self.fileReader.get_data_from_file(filepath))
                 except Exception as exc:
                     print(f'Error reading local file {expected_filename}: {exc}')
                 continue
@@ -91,8 +91,7 @@ class OMIEDataImporterFromResponses(OMIEDataImporter):
                     if verbose:
                         print(f'Saved raw file: {expected_filename}')
 
-                # Process response
-                df = pd.concat([df, self.fileReader.get_data_from_response(response=response)], ignore_index=True)
+                frames.append(self.fileReader.get_data_from_response(response=response))
 
                 if verbose:
                     print(f'Url: {response.url} successfully processed')
@@ -100,10 +99,12 @@ class OMIEDataImporterFromResponses(OMIEDataImporter):
             except Exception as exc:
                 print(f'There was error processing date {date.strftime("%Y-%m-%d")}: {exc}')
 
-        return df
+        if not frames:
+            return pd.DataFrame(columns=self.fileReader.get_keys())
+        return pd.concat(frames, ignore_index=True)
 
     def _read_from_local_files(self, folder_path: str, verbose: bool) -> pd.DataFrame:
-        """Read all .TXT files from local folder without downloading.
+        """Read expected files for the date range from local folder without downloading.
 
         Args:
             folder_path: Path to folder containing .TXT files
@@ -112,28 +113,29 @@ class OMIEDataImporterFromResponses(OMIEDataImporter):
         Returns:
             pd.DataFrame: Processed data from local files
         """
-        df = pd.DataFrame(columns=self.fileReader.get_keys())
+        frames = []
 
-        # List all .TXT files
-        try:
-            all_files = os.listdir(folder_path)
-        except FileNotFoundError:
-            print(f'Folder not found: {folder_path}')
-            return df
-
-        filenames = [f for f in all_files
-                     if os.path.isfile(os.path.join(folder_path, f)) and f.upper().endswith('.TXT')]
+        expected_filenames = [
+            self.fileDownloader.get_expected_filename(date)
+            for date in self.fileDownloader._date_range(self.date_ini, self.date_end)
+        ]
 
         if verbose:
-            print(f'Reading {len(filenames)} files from {folder_path}')
+            print(f'Expecting {len(expected_filenames)} files in {folder_path}')
 
-        for filename in sorted(filenames):
+        for filename in expected_filenames:
             filepath = os.path.join(folder_path, filename)
+            if not os.path.exists(filepath):
+                if verbose:
+                    print(f'Missing: {filename}')
+                continue
             try:
-                df = pd.concat([df, self.fileReader.get_data_from_file(filepath)], ignore_index=True)
+                frames.append(self.fileReader.get_data_from_file(filepath))
                 if verbose:
                     print(f'Processed: {filename}')
             except Exception as exc:
                 print(f'Error processing {filename}: {exc}')
 
-        return df
+        if not frames:
+            return pd.DataFrame(columns=self.fileReader.get_keys())
+        return pd.concat(frames, ignore_index=True)
