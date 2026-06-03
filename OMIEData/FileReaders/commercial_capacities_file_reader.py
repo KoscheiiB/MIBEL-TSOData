@@ -1,10 +1,18 @@
 import datetime as dt
+import unicodedata
 import pandas as pd
-import locale
 from requests import Response
 from io import BytesIO
 from OMIEData.FileReaders.omie_file_reader import OMIEFileReader
 from OMIEData.Enums.all_enums import BorderType
+
+
+def _strip_accents(s: str) -> str:
+    """Remove accents/diacritics for accent-insensitive column matching."""
+    return "".join(
+        c for c in unicodedata.normalize("NFD", s)
+        if unicodedata.category(c) != "Mn"
+    )
 
 # NEXT STEPS,
 # 1. Incorporate upstream/downstream language parameter, controling language in "metada" and renamed columns.
@@ -60,7 +68,6 @@ class CommercialCapacitiesFileReader(OMIEFileReader):
     
     def get_data_from_response(self, response: Response) -> pd.DataFrame:
 
-        locale.setlocale(locale.LC_NUMERIC, "en_DK.UTF-8")
         return self._get_data_from_file_like(file_like=BytesIO(response.content))
     
     def _get_data_from_file_like(self, file_like) -> pd.DataFrame:
@@ -68,12 +75,22 @@ class CommercialCapacitiesFileReader(OMIEFileReader):
         try:
             # Read CSV with pandas, skipping header rows
             df = pd.read_csv(file_like, sep=';', skiprows=2, header=0, encoding='latin-1', skipfooter=1, engine='python', decimal=',', thousands='.')
-            
-            # Rename columns using dictionary mapping
-            df = df.rename(self._dict_column_mapping, axis=1)
-            
-            df = df[[x for x in self.get_keys()]]
-            
+
+            # Drop trailing unnamed columns (created by a trailing ';' separator).
+            df = df.loc[:, ~df.columns.str.startswith("Unnamed")]
+
+            # Accent-insensitive rename so headers like 'Capacidad importacion'
+            # match regardless of how accents survive the latin-1 decode.
+            norm_mapping = {_strip_accents(k).lower(): v for k, v in self._dict_column_mapping.items()}
+            rename_map = {}
+            for col in df.columns:
+                col_norm = _strip_accents(col.strip()).lower()
+                if col_norm in norm_mapping:
+                    rename_map[col] = norm_mapping[col_norm]
+            df = df.rename(columns=rename_map)
+
+            df = df[[x for x in self.get_keys() if x in df.columns]]
+
             df = self._standardize_columns(df)
         
             return df

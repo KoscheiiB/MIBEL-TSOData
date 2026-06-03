@@ -1,12 +1,20 @@
 import datetime as dt
 import re
-import locale
 import pandas as pd
 import numpy as np
 
 from requests import Response
 from OMIEData.Enums.all_enums import DataTypeInMarginalPriceFile
 from OMIEData.FileReaders.omie_file_reader import OMIEFileReader
+
+
+def safe_atof(value: str) -> float:
+    """Parse a Spanish-locale float (thousands '.', decimal ',') without locale.
+
+    locale.setlocale/atof is unreliable on macOS and Linux because the en_DK /
+    es_ES locales are frequently not installed. This is locale-independent.
+    """
+    return float(value.replace(".", "").replace(",", "."))
 
 
 class MarginalPriceFileReader(OMIEFileReader):
@@ -40,7 +48,6 @@ class MarginalPriceFileReader(OMIEFileReader):
                              'H21', 'H22','H23', 'H24', "H25"]
 
     __dateFormatInFile__ = '%d/%m/%Y'
-    __localeInFile__ = "en_DK.UTF-8"
 
     def __init__(self, types=None):
         self.conceptsToLoad = [v for v in DataTypeInMarginalPriceFile] if not types else types
@@ -121,16 +128,17 @@ class MarginalPriceFileReader(OMIEFileReader):
         result[key_list[0]] = date
         result[key_list[1]] = str(concept)
 
-        # These are the correct setting to read the files...
-        locale.setlocale(locale.LC_NUMERIC, MarginalPriceFileReader.__localeInFile__)
-
-        for i, v in enumerate(values, start=1):
+        # Intraday files have leading empty fields before the 24 hour values;
+        # strip them so the hour mapping starts at H1 regardless. Parsing is
+        # locale-free (safe_atof) since locale.atof is unreliable off es_ES.
+        stripped = [v for v in values if v.strip() != '']
+        for i, v in enumerate(stripped, start=1):
 
             if i > 25:
                 break # Jump if 25-hour day or spaces ..
             try:
-                f = multiplier * locale.atof(v)
-            except:
+                f = multiplier * safe_atof(v)
+            except Exception:
 
                 if i == 24:
                     # Day with 23-hours.

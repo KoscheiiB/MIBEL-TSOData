@@ -1,10 +1,19 @@
-import pandas as pd
-import locale
-from requests import Response
+import unicodedata
 from io import BytesIO
+
+import pandas as pd
+from requests import Response
 
 from OMIEData.FileReaders.omie_file_reader import OMIEFileReader
 from OMIEData.Enums.all_enums import TechnologyType
+
+
+def _strip_accents(s: str) -> str:
+    """Remove accents/diacritics for accent-insensitive column matching."""
+    return "".join(
+        c for c in unicodedata.normalize("NFD", s)
+        if unicodedata.category(c) != "Mn"
+    )
 
 
 class EnergyByTechnologyHourlyFileReader(OMIEFileReader):
@@ -36,21 +45,53 @@ class EnergyByTechnologyHourlyFileReader(OMIEFileReader):
 
     def get_data_from_response(self, response: Response) -> pd.DataFrame:
 
-        locale.setlocale(locale.LC_NUMERIC, "en_DK.UTF-8")
         return self._get_data_from_file_like(file_like=BytesIO(response.content))
 
     def get_data_from_file(self, filename: str) -> pd.DataFrame:
 
-        locale.setlocale(locale.LC_NUMERIC, "en_DK.UTF-8")
         return self._get_data_from_file_like(file_like=filename)
 
     def _get_data_from_file_like(self, file_like) -> pd.DataFrame:
 
-        locale.setlocale(locale.LC_NUMERIC, "en_DK.UTF-8")
+        # decimal/thousands handled by read_csv -> no locale.setlocale needed
+        # (the old locale call failed on macOS/Linux).
         df = pd.read_csv(file_like, sep=';', skiprows=2, header=0, encoding='latin-1', skipfooter=1, engine='python',
                          decimal=",", thousands='.')
-        df = df.rename({k: v for k, v in self._dict_column_concept.items()}, axis=1)
-        df = df[[x for x in self.get_keys()]]
+
+        # Drop trailing unnamed columns (created by a trailing ';' separator).
+        df = df.loc[:, ~df.columns.str.startswith("Unnamed")]
+
+        # Accent-insensitive rename from the configured concepts, plus the newer
+        # column names: 'Periodo' (quarter-hour) and the 2025+ technologies.
+        norm_mapping = {_strip_accents(k).lower(): v for k, v in self._dict_column_concept.items()}
+        norm_mapping["periodo"] = "HOUR"
+        norm_mapping["almacenamiento"] = "STORAGE"
+        norm_mapping["hibridacion"] = "HYBRIDIZATION"
+
+        rename_map = {}
+        for col in df.columns:
+            col_norm = _strip_accents(col.strip()).lower()
+            if col_norm in norm_mapping:
+                rename_map[col] = norm_mapping[col_norm]
+        df = df.rename(columns=rename_map)
+
+        # Newer files express the period as quarter-hours (H1Q1..H24Q4); extract
+        # the hour and collapse the quarter-hours to hourly totals.
+        if "HOUR" in df.columns and not pd.api.types.is_numeric_dtype(df["HOUR"]):
+            hour_match = df["HOUR"].astype(str).str.extract(r"H(\d+)Q(\d+)")
+            if not hour_match.isna().all().all():
+                df["HOUR"] = hour_match[0].astype(int)
+                group_cols = ["DATE", "HOUR"]
+                value_cols = [c for c in df.columns if c not in group_cols]
+                for vc in value_cols:
+                    df[vc] = pd.to_numeric(df[vc], errors="coerce")
+                df = df.groupby(group_cols, as_index=False)[value_cols].sum(min_count=1)
+
+        # Keep the configured keys that are present, plus the new technologies.
+        expected = [k for k in self.get_keys() if k in df.columns]
+        for extra in ("STORAGE", "HYBRIDIZATION"):
+            if extra in df.columns and extra not in expected:
+                expected.append(extra)
+        df = df[expected]
 
         return df
-

@@ -1,9 +1,9 @@
 import datetime as dt
-import locale
 import re
 import numpy as np
 import pandas as pd
 from OMIEData.Enums.all_enums import DataTypeInMarginalPriceFile
+from OMIEData.FileReaders.marginal_price_file_reader import safe_atof
 from OMIEData.FileReaders.omie_file_reader import OMIEFileReader
 from requests import Response
 
@@ -47,7 +47,6 @@ class AdjustmentPriceFileReader(OMIEFileReader):
     ]
 
     __dateFormatInFile__ = "%d/%m/%Y"
-    __localeInFile__ = "en_DK.UTF-8"
 
     def __init__(self, types=None):
         self.conceptsToLoad = (
@@ -161,15 +160,16 @@ class AdjustmentPriceFileReader(OMIEFileReader):
         result[key_list[0]] = date
         result[key_list[1]] = str(concept)
 
-        # These are the correct setting to read the files...
-        locale.setlocale(locale.LC_NUMERIC, AdjustmentPriceFileReader.__localeInFile__)
-
-        for i, v in enumerate(values, start=1):
+        # Intraday files have leading empty fields before the 24 hour values;
+        # strip them so the hour mapping starts at H1 regardless. Parsing is
+        # locale-free (safe_atof) since locale.atof is unreliable off es_ES.
+        stripped = [v for v in values if v.strip() != '']
+        for i, v in enumerate(stripped, start=1):
             if i > 25:
                 break  # Jump if 25-hour day or spaces ..
             try:
-                f = multiplier * locale.atof(v)
-            except:
+                f = multiplier * safe_atof(v)
+            except Exception:
                 if i == 24:
                     # Day with 23-hours.
                     result[key_list[25]] = np.nan
