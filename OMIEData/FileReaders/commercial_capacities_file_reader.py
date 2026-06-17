@@ -111,7 +111,18 @@ class CommercialCapacitiesFileReader(OMIEFileReader):
             elif 'HOUR' not in df.columns:
                 df['HOUR'] = pd.NA
 
-            df = df[[x for x in self.get_keys() if x in df.columns]]
+            # From 2025-10-01 the period is quarter-hourly (H1Q1..H24Q4). Split it into
+            # numeric HOUR (1..24) + QUARTER (1..4) so the period is not lost to the
+            # numeric coercion in _standardize_columns; legacy hourly files have no Q.
+            if 'HOUR' in df.columns and df['HOUR'].astype(str).str.contains('Q', na=False).any():
+                hq = df['HOUR'].astype(str).str.extract(r"H(\d+)Q(\d+)")
+                df['HOUR'] = hq[0]
+                df['QUARTER'] = hq[1]
+
+            keep = [x for x in self.get_keys() if x in df.columns]
+            if 'QUARTER' in df.columns:
+                keep.append('QUARTER')
+            df = df[keep]
 
             df = self._standardize_columns(df)
 
@@ -124,13 +135,15 @@ class CommercialCapacitiesFileReader(OMIEFileReader):
 
         # Type cast date column
         df['DATE'] = pd.to_datetime(df['DATE'], format='%d/%m/%Y')
-        
+
         # Ensure proper data types
-        numeric_columns = ['HOUR','IMPORT_CAPACITY', 'IMPORT_OCCUPATION', 'FREE_IMPORT_CAPACITY',
+        numeric_columns = ['HOUR', 'IMPORT_CAPACITY', 'IMPORT_OCCUPATION', 'FREE_IMPORT_CAPACITY',
                         'EXPORT_CAPACITY', 'EXPORT_OCCUPATION', 'FREE_EXPORT_CAPACITY']
-        
+
         for col in numeric_columns:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
+        if 'QUARTER' in df.columns:
+            df['QUARTER'] = pd.to_numeric(df['QUARTER'], errors='coerce')
         df['COUNTRY'] = df['BORDER'].apply(self._get_country_name)
         return df
     

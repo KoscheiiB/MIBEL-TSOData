@@ -149,6 +149,30 @@ def test_commercial_capacities_accent_insensitive_and_drops_unnamed():
     assert "COUNTRY" in df.columns
 
 
+COMMERCIAL_QUARTER_HOUR = (
+    "OMIE commercial capacities;;;;;;;;;\n"
+    "border ES-FR;;;;;;;;;\n"
+    "Fecha;Periodo;Frontera;Capacidad importacion;Ocupación Importación;"
+    "Capacidad libre de importación;Capacidad exportación;Ocupación exportación;"
+    "Capacidad libre de exportación;\n"
+    "01/10/2025;H1Q1;ES-FR;1.000,5;100,0;900,5;2.000,0;200,0;1.800,0;\n"
+    "01/10/2025;H1Q2;ES-FR;1.001,5;100,0;901,5;2.000,0;200,0;1.800,0;\n"
+    "* footer line\n"
+)
+
+
+def test_commercial_capacities_quarter_hour_splits_period():
+    df = CommercialCapacitiesFileReader()._get_data_from_file_like(_latin1(COMMERCIAL_QUARTER_HOUR))
+
+    # 15-min market: the 'Periodo' H1Q1.. label is split into numeric HOUR + QUARTER
+    # instead of being coerced to 0.0.
+    assert "QUARTER" in df.columns
+    assert list(df["HOUR"]) == [1, 1]
+    assert list(df["QUARTER"]) == [1, 2]
+    assert df.iloc[0]["IMPORT_CAPACITY"] == 1000.5
+    assert df.iloc[1]["IMPORT_CAPACITY"] == 1001.5
+
+
 SUPPLY_DEMAND = (
     "OMIE supply demand curve;;;;;;;\n"
     "units;;;;;;;\n"
