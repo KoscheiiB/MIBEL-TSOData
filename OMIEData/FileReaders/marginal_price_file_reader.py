@@ -121,35 +121,23 @@ class MarginalPriceFileReader(OMIEFileReader):
             return res
 
     def _process_line(self, date: dt.date, concept: DataTypeInMarginalPriceFile, values: list, multiplier=1.0) -> dict:
+        """Map a concept's period values to H1..HN columns, faithfully and locale-free.
 
-        key_list = MarginalPriceFileReader.__key_list_retrieve__
-
+        Hourly files carry 23/24/25 values; from 2025-10-01 quarter-hourly files carry
+        92/96/100 (H1..H96 on a normal day, one column per 15-minute period). Leading
+        empty fields (intraday files) are stripped so H1 is the first real value; an
+        unparseable cell becomes NaN. Parsing is locale-free (safe_atof) since locale.atof
+        is unreliable off es_ES.
+        """
         result = dict.fromkeys(self.get_keys())
-        result[key_list[0]] = date
-        result[key_list[1]] = str(concept)
+        result['DATE'] = date
+        result['CONCEPT'] = str(concept)
 
-        # Intraday files have leading empty fields before the 24 hour values;
-        # strip them so the hour mapping starts at H1 regardless. Parsing is
-        # locale-free (safe_atof) since locale.atof is unreliable off es_ES.
         stripped = [v for v in values if v.strip() != '']
         for i, v in enumerate(stripped, start=1):
-
-            if i > 25:
-                break # Jump if 25-hour day or spaces ..
             try:
-                f = multiplier * safe_atof(v)
+                result[f"H{i}"] = multiplier * safe_atof(v)
             except Exception:
-
-                if i == 24:
-                    # Day with 23-hours.
-                    result[key_list[25]] = np.nan
-                    result[key_list[26]] = np.nan
-                elif i == 25:
-                    # Day with 25-hours.
-                    result[key_list[26]] = np.nan
-                else:
-                    raise
-            else:
-                result[key_list[i + 1]] = f
+                result[f"H{i}"] = np.nan
 
         return result

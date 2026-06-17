@@ -57,14 +57,27 @@ def test_marginal_process_line_is_locale_free():
 def test_marginal_process_line_handles_short_day():
     reader = MarginalPriceFileReader()
     concept = list(DataTypeInMarginalPriceFile)[0]
-    # 23 valid values then an unparseable 24th -> H24/H25 become NaN.
+    # 23 valid values then an unparseable 24th -> H24 NaN; H25 absent (None).
     values = [f"{h},0" for h in range(1, 24)] + ["-"]
 
     result = reader._process_line(date="2024-01-01", concept=concept, values=values)
 
     assert result["H23"] == 23.0
     assert np.isnan(result["H24"])
-    assert np.isnan(result["H25"])
+    assert result["H25"] is None  # 23-hour day has no 25th period
+
+
+def test_marginal_process_line_quarter_hour_96_periods():
+    reader = MarginalPriceFileReader()
+    concept = list(DataTypeInMarginalPriceFile)[0]
+    # 15-min market: 96 period prices -> H1..H96, no truncation at H25.
+    values = [f"{p},0" for p in range(1, 97)]
+
+    result = reader._process_line(date="2025-10-01", concept=concept, values=values)
+
+    assert result["H1"] == 1.0
+    assert result["H25"] == 25.0   # would have been dropped by the old i>25 cap
+    assert result["H96"] == 96.0
 
 
 ENERGY_QUARTER_HOUR = (
