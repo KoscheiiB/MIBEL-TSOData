@@ -75,20 +75,25 @@ class EnergyByTechnologyHourlyFileReader(OMIEFileReader):
                 rename_map[col] = norm_mapping[col_norm]
         df = df.rename(columns=rename_map)
 
-        # Newer files express the period as quarter-hours (H1Q1..H24Q4); extract
-        # the hour and collapse the quarter-hours to hourly totals.
+        # From 2025-10-01 the period is expressed in quarter-hours (H1Q1..H24Q4). Each
+        # value is the average power (MW) for that 15-minute slot, NOT additive energy, so
+        # the reader preserves every period faithfully (the full 96/day) and does not
+        # aggregate - collapsing to hourly is the consumer's choice (hourly MWh = mean of
+        # the quarters). HOUR carries 1..24 and QUARTER 1..4.
         if "HOUR" in df.columns and not pd.api.types.is_numeric_dtype(df["HOUR"]):
             hour_match = df["HOUR"].astype(str).str.extract(r"H(\d+)Q(\d+)")
             if not hour_match.isna().all().all():
                 df["HOUR"] = hour_match[0].astype(int)
-                group_cols = ["DATE", "HOUR"]
-                value_cols = [c for c in df.columns if c not in group_cols]
+                df["QUARTER"] = hour_match[1].astype(int)
+                value_cols = [c for c in df.columns if c not in ("DATE", "HOUR", "QUARTER")]
                 for vc in value_cols:
                     df[vc] = pd.to_numeric(df[vc], errors="coerce")
-                df = df.groupby(group_cols, as_index=False)[value_cols].sum(min_count=1)
 
-        # Keep the configured keys that are present, plus the new technologies.
+        # Keep the configured keys that are present, plus QUARTER (15-min files) and the
+        # newer technologies.
         expected = [k for k in self.get_keys() if k in df.columns]
+        if "QUARTER" in df.columns and "HOUR" in expected:
+            expected.insert(expected.index("HOUR") + 1, "QUARTER")
         for extra in ("STORAGE", "HYBRIDIZATION"):
             if extra in df.columns and extra not in expected:
                 expected.append(extra)

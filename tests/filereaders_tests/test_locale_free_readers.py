@@ -78,18 +78,23 @@ ENERGY_QUARTER_HOUR = (
 )
 
 
-def test_energy_quarter_hour_aggregates_and_adds_new_techs():
+def test_energy_quarter_hour_preserves_all_periods():
     df = EnergyByTechnologyHourlyFileReader().get_data_from_file(_latin1(ENERGY_QUARTER_HOUR))
 
     assert "STORAGE" in df.columns
     assert "HYBRIDIZATION" in df.columns
     assert "Unnamed" not in "".join(df.columns)
 
-    hour1 = df[df["HOUR"] == 1].iloc[0]
-    assert hour1["NUCLEAR"] == 200  # 100 + 100 across quarter-hours
-    assert hour1["WIND"] == 20
-    assert hour1["STORAGE"] == 10
-    assert hour1["HYBRIDIZATION"] == 2
+    # Quarter-hour values are average POWER (MW) per 15-min period, not additive energy.
+    # The reader preserves every period faithfully (the full 96/day) and does NOT collapse
+    # or aggregate - any hourly view is the consumer's choice (hourly MWh = mean of quarters).
+    assert len(df) == 3
+    assert "QUARTER" in df.columns
+    h1q1 = df[(df["HOUR"] == 1) & (df["QUARTER"] == 1)].iloc[0]
+    h1q2 = df[(df["HOUR"] == 1) & (df["QUARTER"] == 2)].iloc[0]
+    h2q1 = df[(df["HOUR"] == 2) & (df["QUARTER"] == 1)].iloc[0]
+    assert h1q1["NUCLEAR"] == 100 and h1q2["NUCLEAR"] == 100 and h2q1["NUCLEAR"] == 200
+    assert h1q1["WIND"] == 10 and h1q1["STORAGE"] == 5 and h1q1["HYBRIDIZATION"] == 1
 
 
 ENERGY_HOURLY_LEGACY = (
