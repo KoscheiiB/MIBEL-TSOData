@@ -26,6 +26,7 @@ from OMIEData.FileReaders.energy_by_technology_files_reader import (
 from OMIEData.FileReaders.commercial_capacities_file_reader import (
     CommercialCapacitiesFileReader,
 )
+from OMIEData.FileReaders.curva_pbc_file_reader import CurvaPBCReader
 from OMIEData.FileReaders.supply_demand_curve_file_reader import (
     SupplyDemandCurvesReader,
 )
@@ -188,3 +189,32 @@ def test_supply_demand_curves_locale_free():
     assert row["ENERGY"] == 1234.5
     assert row["PRICE"] == 50.25
     assert row["COUNTRY"] == "ES"
+
+
+# Post 2025-10-01 day-ahead aggregated curve (curva_pbc_*): Periodo=HnQn, Potencia
+# instead of Energía, extra 'Tipología de Oferta' column, columns reordered.
+CURVA_PBC_QH = (
+    "OMIE - Mercado de electricidad;Fecha Emisión :14/10/2025 - 18:43;;15/10/2025;Mercado diario;;;;\n"
+    ";;;;;;;;;\n"
+    "Periodo;Fecha;Pais;Unidad;Tipo Oferta;Potencia Compra/Venta;Precio Compra/Venta;"
+    "Ofertada (O)/Casada (C);Tipología de Oferta;\n"
+    "H1Q1;15/10/2025;MI;;C;171,8;1.500,00;O;S;\n"
+    "H1Q2;15/10/2025;MI;;V;90,0;110,24;C;S;\n"
+    "H24Q4;15/10/2025;MI;;V;95,7;110,00;C;S;\n"
+    ";;;;;;;;;\n"
+)
+
+
+def test_curva_pbc_reader_parses_period_power_and_keys():
+    df = CurvaPBCReader().get_data_from_file(_latin1(CURVA_PBC_QH))
+
+    assert list(df.columns) == ["DATE", "HOUR", "QUARTER", "COUNTRY", "UNIT",
+                                "OFFER_TYPE", "ENERGY", "PRICE", "MATCHED"]
+    # Periodo "HnQn" -> numeric HOUR + QUARTER
+    assert list(df["HOUR"]) == [1, 1, 24]
+    assert list(df["QUARTER"]) == [1, 2, 4]
+    # Potencia parsed locale-free into ENERGY; thousands/decimal handled
+    assert df.iloc[0]["ENERGY"] == 171.8
+    assert df.iloc[0]["PRICE"] == 1500.0
+    assert df.iloc[1]["OFFER_TYPE"] == "V"
+    assert df.iloc[2]["MATCHED"] == "C"
